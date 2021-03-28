@@ -1,8 +1,8 @@
 {
   "name": "@varhub-games/tools",
   "version": "1.0.0",
-  "description": "",
-  "main": "webpack.config.js",
+  "description": "VarHub tools",
+  "main": "dist/index.js",
   "publishConfig": {
     "access": "public"
   },
