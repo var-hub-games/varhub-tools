@@ -1,14 +1,19 @@
-import {ConnectionInfo, Door, HubAccount, MessageData, RoomOnlineInfo} from "./types";
+import { createStore } from "redux";
+import {ConnectionInfo, Door, HubAccount, MessageData, RoomOnlineInfo, DoorMode} from "./types";
 import {
     RoomMessageEvent,
     RoomConnectEvent,
     RoomDestroyEvent,
     RoomDisconnectEvent,
     RoomEnterEvent,
-    RoomErrorEvent, RoomJoinEvent, RoomKnockEvent, RoomLeaveEvent
+    RoomErrorEvent,
+    RoomJoinEvent,
+    RoomKnockEvent,
+    RoomLeaveEvent
 } from "./events/RoomEvents";
 import {TypedEventTarget} from "./TypedEventTarget";
 import {Connection} from "./Connection";
+import {RoomReducer} from "./RoomReducer";
 
 const decoder = new TextDecoder();
 
@@ -38,7 +43,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #connected: boolean = false;
     #resource: string|null = null;
     #destroyed: boolean = false;
-    #state: any = undefined;
+    #store = createStore(RoomReducer);
     #door: Door|null = null;
 
     #windowMessageListener = (event: MessageEvent) => {
@@ -82,8 +87,8 @@ export class Room extends TypedEventTarget<RoomEvents> {
         return this.#connectionInfo?.account?.name ?? null;
     }
 
-    get state(): string {
-        return this.#state;
+    get state(): any {
+        return this.#store.getState();
     }
 
     #sendData = (method: "init"|"msg"|"connect"|"disconnect", data: any) => {
@@ -191,7 +196,6 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.#handlerUrl = roomOnlineInfo.handlerUrl;
         this.#owned = roomOnlineInfo.owned;
         this.#door = roomOnlineInfo.door;
-        this.#state = roomOnlineInfo.state;
         const isNewConnection = !this.#connections;
         this.#connections = this.#connections || new Map();
 
@@ -363,6 +367,25 @@ export class Room extends TypedEventTarget<RoomEvents> {
 
     async ban(accountId: string): Promise<void> {
         return await this.#callMethod("SetAccess", accountId, "block");
+    }
+
+    get allowList(): string[] | null {
+        const door = this.#door;
+        return door ? door.allowlist.slice(0) : null
+    }
+
+    get blockList(): string[] | null {
+        const door = this.#door;
+        return door ? door.blocklist.slice(0) : null
+    }
+
+    get doorMode(): DoorMode | null {
+        const door = this.#door;
+        return door ? door.mode : null
+    }
+
+    get store(){
+        return this.#store;
     }
 }
 

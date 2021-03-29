@@ -41,5 +41,8 @@
     "historyFallback": true,
     "port": 8082,
     "static": "dist"
+  },
+  "dependencies": {
+    "redux": "^4.0.5"
   }
 }
