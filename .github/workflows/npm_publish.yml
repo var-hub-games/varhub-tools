@@ -1,0 +1,33 @@
+name: Publish into NPM
+
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - run: npm install
+      
+      - name: NPM Publish
+        id: npm-publish
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.PRIVATE_NPM_TOKEN }}
+
+      - name: Create Release and Tag
+        if: steps.npm-publish.outputs.version != steps.npm-publish.outputs.old-version
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        with:
+          tag_name: npm_v${{ steps.npm-publish.outputs.version }}
+          release_name: Release ${{ steps.npm-publish.outputs.version }}
+          draft: false
+          prerelease: false
