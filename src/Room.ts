@@ -1,5 +1,5 @@
 import { createStore } from "redux";
-import {ConnectionInfo, Door, HubAccount, MessageData, RoomOnlineInfo, DoorMode} from "./types";
+import {ConnectionInfo, Door, HubAccount, MessageData, RoomOnlineInfo, DoorMode, RoomStateChangeEvent} from "./types";
 import {
     RoomMessageEvent,
     RoomConnectEvent,
@@ -13,7 +13,7 @@ import {
 } from "./events/RoomEvents";
 import {TypedEventTarget} from "./TypedEventTarget";
 import {Connection} from "./Connection";
-import {RoomReducer} from "./RoomReducer";
+import {reduceRoomData} from "./ReduceRoomData";
 
 const decoder = new TextDecoder();
 
@@ -43,7 +43,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #connected: boolean = false;
     #resource: string|null = null;
     #destroyed: boolean = false;
-    #store = createStore(RoomReducer);
+    #store = createStore(reduceRoomData);
     #door: Door|null = null;
 
     #windowMessageListener = (event: MessageEvent) => {
@@ -232,8 +232,12 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.dispatchEvent(new RoomLeaveEvent(connection));
     }
 
-    #onRoomStateChangedEvent = (roomStateChange) => {
-        // todo: state change
+    #onRoomStateChangedEvent = (roomStateChange: RoomStateChangeEvent) => {
+        this.#store.dispatch({
+            type: "update",
+            data: roomStateChange.data,
+            path: roomStateChange.path
+        });
     }
 
     #onMessageEvent = ({from, message}: MessageData) => {

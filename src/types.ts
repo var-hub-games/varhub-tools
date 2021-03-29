@@ -32,4 +32,9 @@ export interface MessageData {
     message: any
 }
 
+export interface RoomStateChangeEvent {
+    path: (string|number)[] | null,
+    data: any
+}
+
 export type DoorMode = "open" | "knock" | "closed";
