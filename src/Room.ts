@@ -167,7 +167,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
                     nameOrId,
                     responseId,
                     ...params.map(param => JSON.stringify(param))
-                ].join('/n');
+                ].join('\n');
                 this.#eventTargetMethodResult.addEventListener(responseId, (event: CustomEvent) => {
                     const { success , data } = event.detail;
                     (success ? resolve : reject)(data);

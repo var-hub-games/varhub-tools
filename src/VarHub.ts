@@ -76,7 +76,7 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
             }
             window.addEventListener("message", messageListener);
             iframe.addEventListener("load", () => {
-                iframe.contentWindow?.postMessage("init", roomId);
+                iframe.contentWindow?.postMessage(["init", roomId], '*');
             });
             iframe.addEventListener("error", (event) => {
                 document.body.removeChild(iframe);
