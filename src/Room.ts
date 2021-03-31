@@ -96,12 +96,16 @@ export class Room extends TypedEventTarget<RoomEvents> {
         return this.#state;
     }
 
-    get entered(): any {
+    get entered(): boolean {
         return this.#entered;
     }
 
-    get destroyed(): any {
+    get destroyed(): boolean {
         return this.#entered;
+    }
+
+    get resource(): string|null {
+        return this.#resource
     }
 
     #sendData = (method: "init"|"msg"|"connect"|"disconnect", data: any) => {
