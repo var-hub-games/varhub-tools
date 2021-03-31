@@ -3,7 +3,7 @@ import {TypedEventTarget} from "./TypedEventTarget";
 import {MethodCaller, Room} from "./Room";
 import {ConnectionMessageEvent} from "./events/ConnectionEvents";
 
-type ConnectionEvents = {
+export type ConnectionEvents = {
     "message": ConnectionMessageEvent
 }
 const encoder = new TextEncoder();

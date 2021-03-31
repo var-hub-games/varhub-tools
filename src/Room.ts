@@ -26,7 +26,7 @@ export interface MethodCaller {
     (name: number, param: ArrayBuffer): Promise<any>,
 }
 
-type RoomEvents = {
+export type RoomEvents = {
     "destroy": RoomDestroyEvent
     "error": RoomErrorEvent
     "connect": RoomDisconnectEvent
