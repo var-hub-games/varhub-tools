@@ -251,7 +251,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #onRoomStateChangedEvent = (event: RoomStateChangeData) => {
         const prevState = this.#state;
         const nextState = reduceRoomState(prevState, event.data, event.path ?? [])
-        if (prevState === nextState) return;
+        if (Object.is(prevState, nextState)) return;
         this.#state = nextState;
         this.dispatchEvent(new RoomStateChangeEvent({
             state: nextState,
