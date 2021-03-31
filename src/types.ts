@@ -32,7 +32,7 @@ export interface MessageData {
     message: any
 }
 
-export interface RoomStateChangeEvent {
+export interface RoomStateChangeData {
     path: (string|number)[] | null,
     data: any
 }

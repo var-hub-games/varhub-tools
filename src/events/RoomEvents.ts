@@ -52,3 +52,8 @@ export class RoomMessageEvent extends CustomEvent<{from: Connection|null, messag
         super("message", {bubbles: false, cancelable: false, composed: false, detail: data});
     }
 }
+export class RoomStateChangeEvent extends CustomEvent<{room: Room, state: any, prevState: any}> {
+    constructor(data: {room: Room, state: any, prevState: any}) {
+        super("stateChange", {bubbles: false, cancelable: false, composed: false, detail: data});
+    }
+}

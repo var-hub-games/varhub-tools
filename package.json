@@ -1,6 +1,6 @@
 {
   "name": "@varhub-games/tools",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "VarHub tools",
   "main": "dist/index.js",
   "publishConfig": {
@@ -43,6 +43,8 @@
     "static": "dist"
   },
   "dependencies": {
+    "crc-32": "^1.2.0",
+    "json-stable-stringify": "^1.0.1",
     "redux": "^4.0.5"
   }
 }

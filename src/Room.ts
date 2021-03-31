@@ -1,5 +1,6 @@
-import { createStore } from "redux";
-import {ConnectionInfo, Door, HubAccount, MessageData, RoomOnlineInfo, DoorMode, RoomStateChangeEvent} from "./types";
+import stableStringify from "json-stable-stringify";
+import CRC32 from "crc-32";
+import {ConnectionInfo, Door, HubAccount, MessageData, RoomOnlineInfo, DoorMode, RoomStateChangeData} from "./types";
 import {
     RoomMessageEvent,
     RoomConnectEvent,
@@ -9,13 +10,16 @@ import {
     RoomErrorEvent,
     RoomJoinEvent,
     RoomKnockEvent,
-    RoomLeaveEvent
+    RoomLeaveEvent,
+    RoomStateChangeEvent
 } from "./events/RoomEvents";
 import {TypedEventTarget} from "./TypedEventTarget";
 import {Connection} from "./Connection";
-import {reduceRoomData} from "./ReduceRoomData";
+import {reduceRoomState} from "./ReduceRoomState";
+import {selectRoomState} from "./SelectRoomState";
 
 const decoder = new TextDecoder();
+const TypedArray = Object.getPrototypeOf(Uint8Array);
 
 export interface MethodCaller {
     (name: string, ...params: any): Promise<any>,
@@ -43,7 +47,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #connected: boolean = false;
     #resource: string|null = null;
     #destroyed: boolean = false;
-    #store = createStore(reduceRoomData);
+    #state = null;
     #door: Door|null = null;
 
     #windowMessageListener = (event: MessageEvent) => {
@@ -88,7 +92,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     }
 
     get state(): any {
-        return this.#store.getState();
+        return this.#state;
     }
 
     #sendData = (method: "init"|"msg"|"connect"|"disconnect", data: any) => {
@@ -155,7 +159,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #getNextResponseId: () => number = ((i) => () => ++i)(0)
     #onMethodResponse = (success: boolean, responseId: string, data: any) => {
         this.#eventTargetMethodResult.dispatchEvent(new CustomEvent(responseId, {
-            detail: { success , data: JSON.parse(data) }
+            detail: { success , data }
         }));
     }
 
@@ -232,12 +236,16 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.dispatchEvent(new RoomLeaveEvent(connection));
     }
 
-    #onRoomStateChangedEvent = (roomStateChange: RoomStateChangeEvent) => {
-        this.#store.dispatch({
-            type: "update",
-            data: roomStateChange.data,
-            path: roomStateChange.path
-        });
+    #onRoomStateChangedEvent = (event: RoomStateChangeData) => {
+        const prevState = this.#state;
+        const nextState = reduceRoomState(prevState, event.data, event.path ?? [])
+        if (prevState === nextState) return;
+        this.#state = nextState;
+        this.dispatchEvent(new RoomStateChangeEvent({
+            state: nextState,
+            prevState: prevState,
+            room: this
+        }));
     }
 
     #onMessageEvent = ({from, message}: MessageData) => {
@@ -314,20 +322,20 @@ export class Room extends TypedEventTarget<RoomEvents> {
         });
     }
 
-    async broadcast(message: string|ArrayBuffer, service = false): Promise<void> {
+    async broadcast(message: any, service = false): Promise<void> {
         if (service && !this.owned) throw new Error("not permitted");
-        if (typeof message === "string") {
-            return await this.#callMethod("SendMessage", null, service, message);
-        } else {
+        if (message instanceof ArrayBuffer || message instanceof TypedArray) {
             // [4(-1), 1(service), N(message)]
-            const messageBytes = new Uint8Array(message);
+            const messageBytes = new Uint8Array("buffer" in message ? message.buffer : message);
             const userCountBytes = new Uint8Array(Uint32Array.of(-1).buffer);
             const dataBytes = new Uint8Array(5 + messageBytes.length);
-            const serviceBytes = Uint8Array.of( service ? 1 : 0);
+            const serviceBytes = Uint8Array.of(service ? 1 : 0);
             dataBytes.set(userCountBytes, 0);
             dataBytes.set(serviceBytes, 4);
             dataBytes.set(dataBytes, 5);
             return await this.#callMethod(0x00002001, dataBytes.buffer);
+        } else {
+            return await this.#callMethod("SendMessage", null, service, JSON.stringify(message));
         }
     }
 
@@ -388,8 +396,31 @@ export class Room extends TypedEventTarget<RoomEvents> {
         return door ? door.mode : null
     }
 
-    get store(){
-        return this.#store;
+    async modifyState(...modifiers: StateModifier[]): Promise<void> {
+        if (modifiers.length === 0) return;
+        const state = this.#state;
+        const modList: StateModifierData[] = modifiers.map(({path, data, ignoreHash}) => {
+            const statePart = selectRoomState(state, path ?? []);
+            let hash: number|null = null;
+            if (!ignoreHash){
+                if (statePart !== undefined) {
+                    hash = 0;
+                } else {
+                    hash = CRC32.str(stableStringify(statePart));
+                }
+            }
+            return {hash, path, data}
+        });
+        if (modList.length === 1) {
+            const mod = modList[0];
+            return await this.#callMethod("ChangeState", mod.path, mod.hash, mod.data);
+        } else {
+            return await this.#callMethod("BulkChangeState", modList);
+        }
+    }
+
+    async changeState(data: any, path:(string|number)[]|null = null, ignoreHash = false){
+        return await this.modifyState({ignoreHash, data, path});
     }
 }
 
@@ -398,5 +429,16 @@ interface ConnectionSelector {
     accountId?: string
     name?: string
     current?: boolean
+}
 
+interface StateModifier {
+    path: (string|number)[] | null,
+    data: any,
+    ignoreHash: boolean
+}
+
+interface StateModifierData {
+    path: (string|number)[] | null,
+    data: any,
+    hash: number|null
 }
