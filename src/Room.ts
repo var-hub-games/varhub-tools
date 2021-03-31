@@ -39,12 +39,13 @@ type RoomEvents = {
 export class Room extends TypedEventTarget<RoomEvents> {
     readonly #iframe: HTMLIFrameElement
     readonly #contentWindow: Window;
+    readonly #connections: Map<string, Connection> = new Map();
     #connectionInfo: ConnectionInfo | null;
-    #connections: Map<string, Connection>|null;
     #roomId: string;
     #handlerUrl: string;
     #owned: boolean;
     #connected: boolean = false;
+    #entered: boolean = false;
     #resource: string|null = null;
     #destroyed: boolean = false;
     #state = null;
@@ -95,6 +96,10 @@ export class Room extends TypedEventTarget<RoomEvents> {
         return this.#state;
     }
 
+    get entered(): any {
+        return this.#entered;
+    }
+
     #sendData = (method: "init"|"msg"|"connect"|"disconnect", data: any) => {
         this.#contentWindow.postMessage([method, data], "*");
     }
@@ -113,11 +118,8 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #onDisconnect = (message: string) => {
         this.#resource = null;
         this.#connected = false;
-        this.#connectionInfo = null;
-        if (this.#connections) {
-            this.#connections.clear();
-            this.#connections = null;
-        }
+        this.#entered = false;
+        this.#connections.clear();
         this.dispatchEvent(new RoomDisconnectEvent(message));
     }
 
@@ -200,8 +202,8 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.#handlerUrl = roomOnlineInfo.handlerUrl;
         this.#owned = roomOnlineInfo.owned;
         this.#door = roomOnlineInfo.door;
-        const isNewConnection = !this.#connections;
-        this.#connections = this.#connections || new Map();
+        const hasEntered = this.#entered;
+        this.#entered = true;
 
         const userIdSet = new Set<string>();
         for (let user of roomOnlineInfo.users) {
@@ -211,7 +213,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         for (const userId of new Set(this.#connections.keys())) {
             if (!userIdSet.has(userId)) this.#deleteConnection(userId);
         }
-        if (isNewConnection) {
+        if (!hasEntered) {
             this.dispatchEvent(new RoomEnterEvent(this));
         }
     }
@@ -222,14 +224,12 @@ export class Room extends TypedEventTarget<RoomEvents> {
 
     #onUserJoinEvent = (connectionInfo: ConnectionInfo) => {
         this.#updateConnection(connectionInfo);
-        if (!this.#connections) return;
         const connection = this.#connections.get(connectionInfo.id);
         if (!connection) return;
         this.dispatchEvent(new RoomJoinEvent(connection));
     }
 
     #onUserLeaveEvent = (connectionInfo: ConnectionInfo) => {
-        if (!this.#connections) return;
         const connection = this.#connections.get(connectionInfo.id);
         if (!connection) return;
         this.#connections.delete(connectionInfo.id);
@@ -285,7 +285,6 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #connectionInfoMap = new WeakMap<Connection, ConnectionInfo>()
     #connectionMessageEventTargetMap = new WeakMap<Connection, EventTarget>()
     #updateConnection = (connectionInfo: ConnectionInfo) => {
-        this.#connections = this.#connections || new Map();
         const id = connectionInfo.id;
         const existsConnection = this.#connections.get(id);
         if (existsConnection) {
@@ -302,7 +301,6 @@ export class Room extends TypedEventTarget<RoomEvents> {
     }
 
     #deleteConnection = (connectionId: string) => {
-        if (!this.#connections) return;
         this.#connections.delete(connectionId);
     }
 
@@ -340,23 +338,17 @@ export class Room extends TypedEventTarget<RoomEvents> {
     }
 
     getConnections(): Map<string, Connection> {
-        const connections = this.#connections;
-        if (!connections) return new Map();
-        return new Map(connections.entries());
+        return new Map(this.#connections.entries());
     }
 
     getConnection(id: string): null | Connection {
-        const connections = this.#connections;
-        if (!connections) return null;
-        return connections.get(id) ?? null;
+        return this.#connections.get(id) ?? null;
     }
 
     selectConnections(selector?: ConnectionSelector): Map<string, Connection> {
         if (!selector) return this.getConnections();
-        const connections = this.#connections;
         const result = new Map<string, Connection>();
-        if (!connections) return result;
-        for (const [id, connection] of connections.entries()) {
+        for (const [id, connection] of this.#connections.entries()) {
             if (selector.name !== undefined && selector.name !== connection.name ) continue;
             if (selector.accountId !== undefined && selector.accountId !== connection.accountId ) continue;
             if (selector.connectionId !== undefined && selector.connectionId !== id ) continue;
@@ -368,6 +360,9 @@ export class Room extends TypedEventTarget<RoomEvents> {
 
     destroy = () => {
         this.#destroyed = true;
+        this.#connected = false;
+        this.#entered = false;
+        this.#connectionInfo = null;
         window.removeEventListener("message", this.#windowMessageListener);
         document.body.removeChild(this.#iframe);
         this.dispatchEvent(new RoomDestroyEvent(this));
