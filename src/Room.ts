@@ -100,6 +100,10 @@ export class Room extends TypedEventTarget<RoomEvents> {
         return this.#entered;
     }
 
+    get destroyed(): any {
+        return this.#entered;
+    }
+
     #sendData = (method: "init"|"msg"|"connect"|"disconnect", data: any) => {
         this.#contentWindow.postMessage([method, data], "*");
     }
