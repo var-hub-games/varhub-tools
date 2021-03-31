@@ -29,7 +29,7 @@ export class TypedEventTarget<T extends EventTypes> {
         this.#target.removeEventListener(type, listener, options);
     }
 
-    protected dispatchEvent<N extends string & keyof T>(event: T[N]): boolean {
+    protected dispatchEvent(event: T[keyof T]): boolean {
         return this.#target.dispatchEvent(event);
     }
 }

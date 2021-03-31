@@ -36,6 +36,7 @@ export type RoomEvents = {
     "leave": RoomLeaveEvent
     "knock": RoomKnockEvent
     "message": RoomMessageEvent
+    "stateChange": RoomStateChangeEvent
 }
 export class Room extends TypedEventTarget<RoomEvents> {
     readonly #iframe: HTMLIFrameElement
