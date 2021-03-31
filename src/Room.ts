@@ -320,6 +320,15 @@ export class Room extends TypedEventTarget<RoomEvents> {
         });
     }
 
+    async disconnect(reason: string){
+        if (!this.connected) return false;
+        this.#resource = null;
+        this.#connected = false;
+        this.#entered = false;
+        this.#connections.clear();
+        this.#sendData("disconnect", reason);
+    }
+
     async broadcast(message: any, service = false): Promise<void> {
         if (service && !this.owned) throw new Error("not permitted");
         if (message instanceof ArrayBuffer || message instanceof TypedArray) {
