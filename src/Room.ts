@@ -33,6 +33,7 @@ export type RoomEvents = {
     "enter": RoomConnectEvent
     "disconnect": RoomDisconnectEvent
     "join": RoomJoinEvent
+    "leave": RoomLeaveEvent
     "knock": RoomKnockEvent
     "message": RoomMessageEvent
 }
@@ -241,6 +242,8 @@ export class Room extends TypedEventTarget<RoomEvents> {
         const connection = this.#connections.get(connectionInfo.id);
         if (!connection) return;
         this.#connections.delete(connectionInfo.id);
+        const eventTarget = this.#connectionMessageEventTargetMap.get(connection);
+        if (eventTarget) eventTarget.dispatchEvent(new CustomEvent("leave"));
         this.dispatchEvent(new RoomLeaveEvent(connection));
     }
 

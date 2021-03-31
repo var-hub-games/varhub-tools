@@ -1,7 +1,7 @@
 import {ConnectionInfo} from "./types";
 import {TypedEventTarget} from "./TypedEventTarget";
 import {MethodCaller, Room} from "./Room";
-import {ConnectionMessageEvent} from "./events/ConnectionEvents";
+import {ConnectionLeaveEvent, ConnectionMessageEvent} from "./events/ConnectionEvents";
 
 export type ConnectionEvents = {
     "message": ConnectionMessageEvent
@@ -22,6 +22,9 @@ export class Connection extends TypedEventTarget<ConnectionEvents> {
         this.#current = current;
         messageEventTarget.addEventListener("message", ({detail}: CustomEvent) => {
             this.dispatchEvent(new ConnectionMessageEvent(detail));
+        });
+        messageEventTarget.addEventListener("leave", (event) => {
+            this.dispatchEvent(new ConnectionLeaveEvent(this));
         });
     }
 
