@@ -97,7 +97,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         return this.#connectionInfo?.account?.name ?? null;
     }
 
-    get door(): Door|null {
+    get door(): Door {
         return this.#door;
     }
 
