@@ -1,6 +1,6 @@
 import stableStringify from "json-stable-stringify";
 import CRC32 from "crc-32";
-import {ConnectionInfo, Door, HubAccount, MessageData, RoomOnlineInfo, DoorMode, RoomStateChangeData} from "./types";
+import {ConnectionInfo, DoorData, HubAccount, MessageData, RoomOnlineInfo, DoorMode, RoomStateChangeData} from "./types";
 import {
     RoomMessageEvent,
     RoomConnectEvent,
@@ -9,14 +9,15 @@ import {
     RoomEnterEvent,
     RoomErrorEvent,
     RoomJoinEvent,
-    RoomKnockEvent,
     RoomLeaveEvent,
+    RoomDoorUpdateEvent,
     RoomStateChangeEvent
 } from "./events/RoomEvents";
 import {TypedEventTarget} from "./TypedEventTarget";
 import {Connection} from "./Connection";
 import {reduceRoomState} from "./ReduceRoomState";
 import {selectRoomState} from "./SelectRoomState";
+import {Door} from "./Door";
 
 const decoder = new TextDecoder();
 const TypedArray = Object.getPrototypeOf(Uint8Array);
@@ -34,8 +35,8 @@ export type RoomEvents = {
     "disconnect": RoomDisconnectEvent
     "join": RoomJoinEvent
     "leave": RoomLeaveEvent
-    "knock": RoomKnockEvent
     "message": RoomMessageEvent
+    "doorUpdate": RoomDoorUpdateEvent
     "stateChange": RoomStateChangeEvent
 }
 export class Room extends TypedEventTarget<RoomEvents> {
@@ -51,7 +52,8 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #resource: string|null = null;
     #destroyed: boolean = false;
     #state = null;
-    #door: Door|null = null;
+    #door: Door;
+    #doorTarget = new EventTarget();
 
     #windowMessageListener = (event: MessageEvent) => {
         if (event.source !== this.#contentWindow) return;
@@ -71,6 +73,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         const contentWindow = iframe.contentWindow;
         if (!contentWindow) throw new Error("iframe error: no content window");
         this.#contentWindow = contentWindow;
+        this.#door = new Door(this, this.#callMethod, this.#doorTarget);
         window.addEventListener("message", this.#windowMessageListener);
     }
 
@@ -92,6 +95,10 @@ export class Room extends TypedEventTarget<RoomEvents> {
 
     get name(): string|null {
         return this.#connectionInfo?.account?.name ?? null;
+    }
+
+    get door(): Door|null {
+        return this.#door;
     }
 
     get state(): any {
@@ -149,7 +156,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
             }
             if (header === "ConnectionInfoEvent") return this.#onConnectionInfoEvent(eventData);
             if (header === "RoomInfoEvent") return this.#onRoomInfoEvent(eventData);
-            if (header === "UserKnockEvent") return this.#onUserKnockEvent(eventData);
+            if (header === "DoorChangedEvent") return this.#onDoorChangedEvent(eventData);
             if (header === "UserJoinEvent") return this.#onUserJoinEvent(eventData);
             if (header === "UserLeaveEvent") return this.#onUserLeaveEvent(eventData);
             if (header === "RoomStateChangedEvent") return this.#onRoomStateChangedEvent(eventData);
@@ -211,7 +218,6 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.#roomId = roomOnlineInfo.roomId;
         this.#handlerUrl = roomOnlineInfo.handlerUrl;
         this.#owned = roomOnlineInfo.owned;
-        this.#door = roomOnlineInfo.door;
         const hasEntered = this.#entered;
         this.#entered = true;
 
@@ -223,13 +229,24 @@ export class Room extends TypedEventTarget<RoomEvents> {
         for (const userId of new Set(this.#connections.keys())) {
             if (!userIdSet.has(userId)) this.#deleteConnection(userId);
         }
+        if (roomOnlineInfo.door) {
+            const updated = this.#doorTarget.dispatchEvent(new CustomEvent("update", {
+                detail: roomOnlineInfo.door,
+                cancelable: true
+            }));
+            if (updated) this.dispatchEvent(new RoomDoorUpdateEvent(this.#door));
+        }
         if (!hasEntered) {
             this.dispatchEvent(new RoomEnterEvent(this));
         }
     }
 
-    #onUserKnockEvent = (account: HubAccount) => {
-        this.dispatchEvent(new RoomKnockEvent(account));
+    #onDoorChangedEvent = (doorData: DoorData) => {
+        const updated = this.#doorTarget.dispatchEvent(new CustomEvent("update", {
+            detail: doorData,
+            cancelable: true
+        }));
+        if (updated) this.dispatchEvent(new RoomDoorUpdateEvent(this.#door));
     }
 
     #onUserJoinEvent = (connectionInfo: ConnectionInfo) => {
@@ -387,29 +404,6 @@ export class Room extends TypedEventTarget<RoomEvents> {
         window.removeEventListener("message", this.#windowMessageListener);
         document.body.removeChild(this.#iframe);
         this.dispatchEvent(new RoomDestroyEvent(this));
-    }
-
-    async allow(accountId: string): Promise<void> {
-        return await this.#callMethod("SetAccess", accountId, "allow");
-    }
-
-    async ban(accountId: string): Promise<void> {
-        return await this.#callMethod("SetAccess", accountId, "block");
-    }
-
-    get allowList(): string[] | null {
-        const door = this.#door;
-        return door ? door.allowlist.slice(0) : null
-    }
-
-    get blockList(): string[] | null {
-        const door = this.#door;
-        return door ? door.blocklist.slice(0) : null
-    }
-
-    get doorMode(): DoorMode | null {
-        const door = this.#door;
-        return door ? door.mode : null
     }
 
     async modifyState(...modifiers: StateModifier[]): Promise<void> {

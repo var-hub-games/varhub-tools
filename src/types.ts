@@ -7,7 +7,7 @@ export interface RoomInfo {
 export interface RoomOnlineInfo extends RoomInfo {
     state: any // any json*
     users: ConnectionInfo[]
-    door: Door|null
+    door: DoorData|null
 }
 
 export interface ConnectionInfo {
@@ -21,10 +21,11 @@ export interface HubAccount {
     name: string
 }
 
-export interface Door {
+export interface DoorData {
     mode: DoorMode
     allowlist: string[] // users ids
     blocklist: string[] // users ids
+    knock: HubAccount[]
 }
 
 export interface MessageData {

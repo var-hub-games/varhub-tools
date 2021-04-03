@@ -1,6 +1,7 @@
 import {Room} from "../Room";
 import {Connection} from "../Connection";
 import {HubAccount} from "../types";
+import {Door} from "../Door";
 
 export class RoomDestroyEvent extends CustomEvent<Room> {
     constructor(room: Room) {
@@ -52,6 +53,13 @@ export class RoomMessageEvent extends CustomEvent<{from: Connection|null, messag
         super("message", {bubbles: false, cancelable: false, composed: false, detail: data});
     }
 }
+
+export class RoomDoorUpdateEvent extends CustomEvent<Door> {
+    constructor(data: Door) {
+        super("doorUpdate", {bubbles: false, cancelable: false, composed: false, detail: data});
+    }
+}
+
 export class RoomStateChangeEvent extends CustomEvent<{room: Room, state: any, prevState: any}> {
     constructor(data: {room: Room, state: any, prevState: any}) {
         super("stateChange", {bubbles: false, cancelable: false, composed: false, detail: data});
