@@ -1,6 +1,6 @@
 import stableStringify from "json-stable-stringify";
 import CRC32 from "crc-32";
-import {ConnectionInfo, DoorData, HubAccount, MessageData, RoomOnlineInfo, DoorMode, RoomStateChangeData} from "./types";
+import {ConnectionInfo, DoorData, MessageData, RoomOnlineInfo, RoomStateChangeData} from "./types";
 import {
     RoomMessageEvent,
     RoomConnectEvent,
