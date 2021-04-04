@@ -40,6 +40,10 @@ export class Connection extends TypedEventTarget<ConnectionEvents> {
         return this.#connectionInfo.id;
     }
 
+    get resource(): string {
+        return this.#connectionInfo.resource;
+    }
+
     get accountId(): string{
         return this.#connectionInfo.account.id;
     }
