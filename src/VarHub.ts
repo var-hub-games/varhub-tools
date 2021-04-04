@@ -37,7 +37,7 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
         return createRoomUrl.href;
     }
 
-    async joinRoom(roomId: string): Promise<Room> {
+    async joinRoom(roomId: string, state?: string): Promise<Room> {
         return new Promise((resolve, reject) => {
             const frameUrl = new URL("/room/connect", this.#serverUrl);
             const iframe = document.createElement("iframe");
@@ -50,6 +50,7 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
             iframe.style.width = "1px";
             document.body.append(iframe);
             const messageListener = event => {
+                console.log("GET EVENT", event)
                 if (event.source !== iframe.contentWindow) return;
                 window.removeEventListener("message", messageListener);
                 try {
@@ -58,6 +59,7 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
                     if (!success) {
                         if (roomInfoOrMessage === "NotPermitted") {
                             const roomUrl = new URL(`/room/${roomId}`, this.#serverUrl);
+                            if (state != undefined) roomUrl.searchParams.set("state", state);
                             location.href = roomUrl.href;
                         }
                         return reject(new Error(roomInfoOrMessage));
