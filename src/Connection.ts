@@ -69,7 +69,7 @@ export class Connection extends TypedEventTarget<ConnectionEvents> {
             dataBytes.set(userIdLengthBytes, 4);
             dataBytes.set(userIdBytes, 8);
             dataBytes.set(serviceBytes, 8 + userIdLength);
-            dataBytes.set(dataBytes, 9 + userIdLength);
+            dataBytes.set(messageBytes, 9 + userIdLength);
             return await this.#callMethod(0x00002001, dataBytes.buffer);
         }
     }

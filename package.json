@@ -1,6 +1,6 @@
 {
   "name": "@varhub-games/tools",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "VarHub tools",
   "main": "dist/index.js",
   "publishConfig": {
