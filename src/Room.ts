@@ -110,7 +110,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     }
 
     get destroyed(): boolean {
-        return this.#entered;
+        return this.#destroyed;
     }
 
     get resource(): string|null {
