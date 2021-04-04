@@ -164,11 +164,8 @@ export class Room extends TypedEventTarget<RoomEvents> {
             if (header === "RoomStateChangedEvent") return this.#onRoomStateChangedEvent(eventData);
             if (header === "MessageEvent") return this.#onMessageEvent(eventData);
         } else {
-            console.log(":: room bin message", message);
             const uint32 = new Uint32Array(message, 0, 1);
-            console.log(":: uint32", uint32);
             const eventId = uint32[0];
-            console.log(":: eventId", eventId);
             if (eventId === 0x00004000 || eventId === 0x00004040) {
                 const success = eventId === 0x00004000;
                 const responseId = String(eventId[1]);
@@ -225,6 +222,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.#roomId = roomOnlineInfo.roomId;
         this.#handlerUrl = roomOnlineInfo.handlerUrl;
         this.#owned = roomOnlineInfo.owned;
+        this.#state = roomOnlineInfo.state;
         const hasEntered = this.#entered;
         this.#entered = true;
 
@@ -274,7 +272,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
 
     #onRoomStateChangedEvent = (event: RoomStateChangeData) => {
         const prevState = this.#state;
-        const nextState = reduceRoomState(prevState, event.data, event.path ?? [])
+        const nextState = reduceRoomState(prevState, event.data, event.path ?? []);
         if (Object.is(prevState, nextState)) return;
         this.#state = nextState;
         this.dispatchEvent(new RoomStateChangeEvent({
@@ -421,7 +419,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
             const statePart = selectRoomState(state, path ?? []);
             let hash: number|null = null;
             if (!ignoreHash){
-                if (statePart !== undefined) {
+                if (statePart === undefined) {
                     hash = 0;
                 } else {
                     hash = CRC32.str(stableStringify(statePart));
