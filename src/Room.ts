@@ -9,6 +9,7 @@ import {
     RoomEnterEvent,
     RoomErrorEvent,
     RoomJoinEvent,
+    RoomConnectionInfoEvent,
     RoomLeaveEvent,
     RoomDoorUpdateEvent,
     RoomStateChangeEvent
@@ -38,6 +39,7 @@ export type RoomEvents = {
     "message": RoomMessageEvent
     "doorUpdate": RoomDoorUpdateEvent
     "stateChange": RoomStateChangeEvent
+    "connectionInfo": RoomConnectionInfoEvent
 }
 export class Room extends TypedEventTarget<RoomEvents> {
     readonly #iframe: HTMLIFrameElement
@@ -162,8 +164,11 @@ export class Room extends TypedEventTarget<RoomEvents> {
             if (header === "RoomStateChangedEvent") return this.#onRoomStateChangedEvent(eventData);
             if (header === "MessageEvent") return this.#onMessageEvent(eventData);
         } else {
-            const uint32 = new Uint32Array(message, 0, 8);
+            console.log(":: room bin message", message);
+            const uint32 = new Uint32Array(message, 0, 1);
+            console.log(":: uint32", uint32);
             const eventId = uint32[0];
+            console.log(":: eventId", eventId);
             if (eventId === 0x00004000 || eventId === 0x00004040) {
                 const success = eventId === 0x00004000;
                 const responseId = String(eventId[1]);
@@ -204,14 +209,16 @@ export class Room extends TypedEventTarget<RoomEvents> {
             const headerBytes = new Uint8Array(header);
             const messageBytes = new Uint8Array(messageBuffer);
             const resultBytes = new Uint8Array(headerBytes.length + messageBytes.length);
+            console.log({header, headerBytes, messageBytes, resultBytes});
             resultBytes.set(headerBytes);
-            resultBytes.set(resultBytes, headerBytes.length)
+            resultBytes.set(messageBytes, headerBytes.length)
             this.#sendData("msg", resultBytes.buffer);
         }
     }
 
     #onConnectionInfoEvent = (connectionInfo: ConnectionInfo) => {
         this.#connectionInfo = connectionInfo;
+        this.dispatchEvent(new RoomConnectionInfoEvent(this));
     }
 
     #onRoomInfoEvent = (roomOnlineInfo: RoomOnlineInfo) => {
@@ -282,13 +289,13 @@ export class Room extends TypedEventTarget<RoomEvents> {
     }
 
     #onBinaryMessageEvent = (binaryMessageData: ArrayBuffer) => {
-        const len = new Uint32Array(binaryMessageData, 0, 1)[0];
+        const len = new Int32Array(binaryMessageData, 0, 1)[0];
         let from: string|null = null;
         let message: ArrayBuffer;
         if (len < 0) {
             message = binaryMessageData.slice(4);
         } else {
-            const nameData = binaryMessageData.slice(4, len);
+            const nameData = binaryMessageData.slice(4, 4+len);
             from = decoder.decode(nameData);
             message = binaryMessageData.slice(4 + len);
         }
@@ -304,6 +311,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
                 throw new Error("message from unknown id");
             }
         }
+        console.log("::onMessage MSG", typeof message, message);
         this.dispatchEvent(new RoomMessageEvent({from: connection, message: message}))
         const eventTarget = connection ? this.#connectionMessageEventTargetMap.get(connection) : null;
         if (eventTarget) {
@@ -363,15 +371,15 @@ export class Room extends TypedEventTarget<RoomEvents> {
         if (message instanceof ArrayBuffer || message instanceof TypedArray) {
             // [4(-1), 1(service), N(message)]
             const messageBytes = new Uint8Array("buffer" in message ? message.buffer : message);
-            const userCountBytes = new Uint8Array(Uint32Array.of(-1).buffer);
+            const userCountBytes = new Uint8Array(Int32Array.of(-1).buffer);
             const dataBytes = new Uint8Array(5 + messageBytes.length);
             const serviceBytes = Uint8Array.of(service ? 1 : 0);
             dataBytes.set(userCountBytes, 0);
             dataBytes.set(serviceBytes, 4);
-            dataBytes.set(dataBytes, 5);
+            dataBytes.set(messageBytes, 5);
             return await this.#callMethod(0x00002001, dataBytes.buffer);
         } else {
-            return await this.#callMethod("SendMessage", null, service, JSON.stringify(message));
+            return await this.#callMethod("SendMessage", null, service, message);
         }
     }
 

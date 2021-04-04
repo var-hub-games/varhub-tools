@@ -51,7 +51,7 @@ export class Door extends TypedEventTarget<DoorEvents> {
     }
 
     get knock(): Map<string, HubAccount> {
-        return new Map(this.#knock.entries());
+        return new Map(this.#knock);
     }
 
     #onUpdate = (event: CustomEvent<DoorData>) => {
@@ -88,7 +88,7 @@ export class Door extends TypedEventTarget<DoorEvents> {
             for (const knockId of knockIdListSet) {
                 if (!currentKnockIds.has(knockId)) {
                     const userToAdd = knockIdMap.get(knockId);
-                    if (userToAdd) usersToRemove.add(userToAdd);
+                    if (userToAdd) usersToAdd.add(userToAdd);
                 }
             }
             for (let hubAccount of usersToRemove) {
@@ -97,7 +97,6 @@ export class Door extends TypedEventTarget<DoorEvents> {
             for (let hubAccount of usersToAdd) {
                 this.#knock.set(hubAccount.id, Object.freeze(hubAccount));
             }
-            this.#blocklist = blocklistSet;
         }
 
         const updated = updates.knock || updates.mode || updates.allowlist || updates.blocklist;

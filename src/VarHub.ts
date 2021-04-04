@@ -50,7 +50,6 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
             iframe.style.width = "1px";
             document.body.append(iframe);
             const messageListener = event => {
-                console.log("GET EVENT", event)
                 if (event.source !== iframe.contentWindow) return;
                 window.removeEventListener("message", messageListener);
                 try {

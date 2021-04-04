@@ -15,6 +15,12 @@ export class RoomEnterEvent extends CustomEvent<Room> {
     }
 }
 
+export class RoomConnectionInfoEvent extends CustomEvent<Room> {
+    constructor(room: Room) {
+        super("connectionInfo", {bubbles: false, cancelable: false, composed: false, detail: room});
+    }
+}
+
 export class RoomErrorEvent extends CustomEvent<any> {
     constructor(error: any) {
         super("error", {bubbles: false, cancelable: false, composed: false, detail: error});
@@ -48,8 +54,8 @@ export class RoomKnockEvent extends CustomEvent<HubAccount> {
         super("knock", {bubbles: false, cancelable: false, composed: false, detail: hubAccount});
     }
 }
-export class RoomMessageEvent extends CustomEvent<{from: Connection|null, message: string}> {
-    constructor(data: {from: Connection|null, message: string}) {
+export class RoomMessageEvent extends CustomEvent<{from: Connection|null, message: any}> {
+    constructor(data: {from: Connection|null, message: any}) {
         super("message", {bubbles: false, cancelable: false, composed: false, detail: data});
     }
 }
