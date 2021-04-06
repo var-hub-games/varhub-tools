@@ -57,6 +57,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #entered: boolean = false;
     #resource: string|null = null;
     #destroyed: boolean = false;
+    #roomStartDiffAccuracyMs: number = Infinity;
     #roomStartDiffMs: null|number = 0;
     #state = null;
 
@@ -125,6 +126,9 @@ export class Room extends TypedEventTarget<RoomEvents> {
     get roomStartDiffMs(): null|number {
         return this.#roomStartDiffMs;
     }
+    get roomStartDiffAccuracyMs(): number {
+        return this.#roomStartDiffAccuracyMs;
+    }
 
     getTimeLeft(timerValueMs: number): number {
         return timerValueMs - performance.now() + (this.roomStartDiffMs??0);
@@ -154,6 +158,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.#connected = false;
         this.#entered = false;
         this.#roomStartDiffMs = null;
+        this.#roomStartDiffAccuracyMs = Infinity;
         this.#connections.clear();
         this.dispatchEvent(new RoomDisconnectEvent(message));
     }
@@ -232,6 +237,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #onConnectionInfoEvent = (connectionInfo: ConnectionInfo) => {
         const roomStartDiffMs = performance.now() - connectionInfo.syncTimeMs;
         this.#roomStartDiffMs = roomStartDiffMs;
+        this.#roomStartDiffAccuracyMs = Infinity;
         this.#connectionInfo = connectionInfo;
         this.dispatchEvent(new RoomSyncTimeEvent(roomStartDiffMs));
         this.dispatchEvent(new RoomConnectionInfoEvent(this));
@@ -380,6 +386,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.#connected = false;
         this.#entered = false;
         this.#roomStartDiffMs = null;
+        this.#roomStartDiffAccuracyMs = Infinity;
         this.#connections.clear();
         this.#sendData("disconnect", reason);
     }
@@ -408,6 +415,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         const localDiff = now - start;
         const roomStartDiffMs = now - roomMs - localDiff/2;
         this.#roomStartDiffMs = roomStartDiffMs;
+        this.#roomStartDiffAccuracyMs = localDiff;
         this.dispatchEvent(new RoomSyncTimeEvent(roomStartDiffMs));
         return roomStartDiffMs
     }
