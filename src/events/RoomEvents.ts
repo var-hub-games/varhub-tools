@@ -49,6 +49,11 @@ export class RoomLeaveEvent extends CustomEvent<Connection> {
         super("leave", {bubbles: false, cancelable: false, composed: false, detail: connection});
     }
 }
+export class RoomSyncTimeEvent extends CustomEvent<number> {
+    constructor(time: number) {
+        super("syncTime", {bubbles: false, cancelable: false, composed: false, detail: time});
+    }
+}
 export class RoomKnockEvent extends CustomEvent<HubAccount> {
     constructor(hubAccount: HubAccount) {
         super("knock", {bubbles: false, cancelable: false, composed: false, detail: hubAccount});

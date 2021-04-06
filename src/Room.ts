@@ -11,6 +11,7 @@ import {
     RoomJoinEvent,
     RoomConnectionInfoEvent,
     RoomLeaveEvent,
+    RoomSyncTimeEvent,
     RoomDoorUpdateEvent,
     RoomStateChangeEvent
 } from "./events/RoomEvents";
@@ -40,6 +41,7 @@ export type RoomEvents = {
     "doorUpdate": RoomDoorUpdateEvent
     "stateChange": RoomStateChangeEvent
     "connectionInfo": RoomConnectionInfoEvent
+    "syncTime": RoomSyncTimeEvent
 }
 export class Room extends TypedEventTarget<RoomEvents> {
     readonly #iframe: HTMLIFrameElement
@@ -228,8 +230,10 @@ export class Room extends TypedEventTarget<RoomEvents> {
     }
 
     #onConnectionInfoEvent = (connectionInfo: ConnectionInfo) => {
-        this.#roomStartDiffMs = performance.now() - connectionInfo.syncTimeMs;
+        const roomStartDiffMs = performance.now() - connectionInfo.syncTimeMs;
+        this.#roomStartDiffMs = roomStartDiffMs;
         this.#connectionInfo = connectionInfo;
+        this.dispatchEvent(new RoomSyncTimeEvent(roomStartDiffMs));
         this.dispatchEvent(new RoomConnectionInfoEvent(this));
     }
 
@@ -395,6 +399,17 @@ export class Room extends TypedEventTarget<RoomEvents> {
         } else {
             return await this.#callMethod("SendMessage", null, service, message);
         }
+    }
+
+    async syncTime(): Promise<number> {
+        const start = performance.now();
+        const roomMs: number = await this.#callMethod("SyncTime");
+        const now = performance.now();
+        const localDiff = now - start;
+        const roomStartDiffMs = now - roomMs - localDiff/2;
+        this.#roomStartDiffMs = roomStartDiffMs;
+        this.dispatchEvent(new RoomSyncTimeEvent(roomStartDiffMs));
+        return roomStartDiffMs
     }
 
     getConnections(): Map<string, Connection> {
