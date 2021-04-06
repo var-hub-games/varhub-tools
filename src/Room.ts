@@ -45,6 +45,8 @@ export class Room extends TypedEventTarget<RoomEvents> {
     readonly #iframe: HTMLIFrameElement
     readonly #contentWindow: Window;
     readonly #connections: Map<string, Connection> = new Map();
+    readonly #door: Door;
+    readonly #doorTarget = new EventTarget();
     #connectionInfo: ConnectionInfo | null;
     #roomId: string;
     #handlerUrl: string;
@@ -53,9 +55,8 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #entered: boolean = false;
     #resource: string|null = null;
     #destroyed: boolean = false;
+    #roomStartDiffMs: number = 0;
     #state = null;
-    #door: Door;
-    #doorTarget = new EventTarget();
 
     #windowMessageListener = (event: MessageEvent) => {
         if (event.source !== this.#contentWindow) return;
@@ -117,6 +118,10 @@ export class Room extends TypedEventTarget<RoomEvents> {
 
     get resource(): string|null {
         return this.#resource
+    }
+
+    get roomStartDiffMs(): number {
+        return this.#roomStartDiffMs;
     }
 
     #sendData = (method: "init"|"msg"|"connect"|"disconnect", data: any) => {
@@ -214,6 +219,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     }
 
     #onConnectionInfoEvent = (connectionInfo: ConnectionInfo) => {
+        this.#roomStartDiffMs = performance.now() - connectionInfo.syncTimeMs;
         this.#connectionInfo = connectionInfo;
         this.dispatchEvent(new RoomConnectionInfoEvent(this));
     }

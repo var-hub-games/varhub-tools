@@ -14,6 +14,7 @@ export interface ConnectionInfo {
     account: HubAccount
     resource: string;
     id: string // (userId + resource)
+    syncTimeMs: number
 }
 
 export interface HubAccount {
