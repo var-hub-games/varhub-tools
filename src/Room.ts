@@ -55,7 +55,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #entered: boolean = false;
     #resource: string|null = null;
     #destroyed: boolean = false;
-    #roomStartDiffMs: number = 0;
+    #roomStartDiffMs: null|number = 0;
     #state = null;
 
     #windowMessageListener = (event: MessageEvent) => {
@@ -120,7 +120,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         return this.#resource
     }
 
-    get roomStartDiffMs(): number {
+    get roomStartDiffMs(): null|number {
         return this.#roomStartDiffMs;
     }
 
@@ -143,6 +143,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.#resource = null;
         this.#connected = false;
         this.#entered = false;
+        this.#roomStartDiffMs = null;
         this.#connections.clear();
         this.dispatchEvent(new RoomDisconnectEvent(message));
     }
@@ -366,6 +367,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.#resource = null;
         this.#connected = false;
         this.#entered = false;
+        this.#roomStartDiffMs = null;
         this.#connections.clear();
         this.#sendData("disconnect", reason);
     }
