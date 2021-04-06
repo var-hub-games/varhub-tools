@@ -124,8 +124,12 @@ export class Room extends TypedEventTarget<RoomEvents> {
         return this.#roomStartDiffMs;
     }
 
-    getTimeLeft(timerValueMs: number){
+    getTimeLeft(timerValueMs: number): number {
         return timerValueMs - performance.now() + (this.roomStartDiffMs??0);
+    }
+
+    createTimer(timeoutValueMs: number): number {
+        return performance.now() - (this.roomStartDiffMs??0) + timeoutValueMs;
     }
 
     #sendData = (method: "init"|"msg"|"connect"|"disconnect", data: any) => {
