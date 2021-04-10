@@ -60,6 +60,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
     #roomStartDiffAccuracyMs: number = Infinity;
     #roomStartDiffMs: null|number = 0;
     #state = null;
+    #connecting = false;
 
     #windowMessageListener = (event: MessageEvent) => {
         if (event.source !== this.#contentWindow) return;
@@ -128,6 +129,10 @@ export class Room extends TypedEventTarget<RoomEvents> {
     }
     get roomStartDiffAccuracyMs(): number {
         return this.#roomStartDiffAccuracyMs;
+    }
+
+    get connecting(): boolean {
+        return this.#connecting;
     }
 
     getTimeLeft(timerValueMs: number): number {
@@ -366,9 +371,11 @@ export class Room extends TypedEventTarget<RoomEvents> {
 
     async connect<T extends string>(resource: T): Promise<T> {
         if (this.connected) throw new Error("already connected");
+        if (this.#connecting) throw new Error("already connecting");
         return new Promise((resolve, reject) => {
             this.#eventTargetConnect.addEventListener("connectResult", (event: CustomEvent) => {
                 const { success, message } = event.detail;
+                this.#connecting = false;
                 if (success) {
                     this.#resource = message;
                     resolve(resource);
@@ -385,6 +392,7 @@ export class Room extends TypedEventTarget<RoomEvents> {
         this.#resource = null;
         this.#connected = false;
         this.#entered = false;
+        this.#connecting = false;
         this.#roomStartDiffMs = null;
         this.#roomStartDiffAccuracyMs = Infinity;
         this.#connections.clear();
