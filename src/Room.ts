@@ -139,6 +139,10 @@ export class Room extends TypedEventTarget<RoomEvents> {
         return timerValueMs - performance.now() + (this.roomStartDiffMs??0);
     }
 
+    getTimePassed(timerValueMs: number): number {
+        return -this.getTimeLeft(timerValueMs);
+    }
+
     createTimer(timeoutValueMs: number): number {
         return performance.now() - (this.roomStartDiffMs??0) + timeoutValueMs;
     }
@@ -422,6 +426,9 @@ export class Room extends TypedEventTarget<RoomEvents> {
         const now = performance.now();
         const localDiff = now - start;
         const roomStartDiffMs = now - roomMs - localDiff/2;
+        if (this.#roomStartDiffMs && this.#roomStartDiffAccuracyMs < localDiff) {
+            return this.#roomStartDiffMs;
+        }
         this.#roomStartDiffMs = roomStartDiffMs;
         this.#roomStartDiffAccuracyMs = localDiff;
         this.dispatchEvent(new RoomSyncTimeEvent(roomStartDiffMs));
@@ -497,7 +504,7 @@ interface ConnectionSelector {
 interface StateModifier {
     path: (string|number)[] | null,
     data: any,
-    ignoreHash: boolean
+    ignoreHash?: boolean
 }
 
 interface StateModifierData {

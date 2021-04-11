@@ -1,6 +1,7 @@
 import {Room} from "./Room";
 import {TypedEventTarget} from "./TypedEventTarget";
 import {RoomCreateEvent} from "./events/VarHubEvents";
+import {RoomInfo} from "./types";
 
 type VarHubEvents = {
     "roomCreate": RoomCreateEvent
@@ -22,34 +23,40 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
         this.#serverUrl = new URL(serverUrl, document.baseURI);
     }
 
-    createRoom(roomUrl: string = location.href, state?: string): void{
-        location.href = this.getRoomCreateUrl(roomUrl, state);
-    }
+    async createRoom(roomUrl: string = location.href, popup?: Window): Promise<Room> {
+        if (popup === window) throw new Error("can not open popup in current window");
+        if (popup && popup.closed) popup = undefined;
 
-    getRoomCreateUrl(roomUrl: string = location.href, state?: string): string{
         const redirectUrl = new URL(roomUrl, document.baseURI);
         redirectUrl.searchParams.delete("roomId");
         redirectUrl.searchParams.delete("roomOwner");
         const handlerHref = redirectUrl.href;
         const createRoomUrl = new URL("/room/create", this.#serverUrl);
+        createRoomUrl.searchParams.set("mode", "popup");
         createRoomUrl.searchParams.set("url", handlerHref);
-        if (state != undefined) createRoomUrl.searchParams.set("state", state);
-        return createRoomUrl.href;
+        if (!popup) popup = window.open("about:blank", "new-room-popup", "width=500,height=500") ?? undefined;
+        if (!popup) throw new Error("can not open popup");
+        const roomData = await this.#waitForPopupRoomInfo(popup, createRoomUrl.href, false);
+        return this.joinRoom(roomData.roomId, popup);
     }
 
-    async joinRoom(roomId: string, state?: string): Promise<Room> {
+    async joinRoom(roomId: string, popup?: Window): Promise<Room> {
+        if (popup === window) throw new Error("can not open popup in current window");
+        if (popup && popup.closed) popup = undefined;
+        if (!popup) popup = window.open("about:blank", "new-room-popup", "width=500,height=500") ?? undefined;
+
         return new Promise((resolve, reject) => {
             const frameUrl = new URL("/room/connect", this.#serverUrl);
             const iframe = document.createElement("iframe");
             iframe.classList.add("varhub-hidden-frame");
-            iframe.id = "varhub-hidden-iframe-room-"+roomId;
+            iframe.setAttribute("data-room-id", roomId);
             iframe.style.position = "fixed";
             iframe.style.top = "-1000px";
             iframe.style.left = "-1000px";
             iframe.style.height = "1px";
             iframe.style.width = "1px";
             document.body.append(iframe);
-            const messageListener = event => {
+            const messageListener = async (event) => {
                 if (event.source !== iframe.contentWindow) return;
                 window.removeEventListener("message", messageListener);
                 try {
@@ -57,9 +64,14 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
                     if (method !== "init") return reject(new Error("protocol error"));
                     if (!success) {
                         if (roomInfoOrMessage === "NotPermitted") {
+                            // TODO: OPEN WINDOW AGAIN
+                            if (!popup) return reject(new Error("NotPermitted"));
                             const roomUrl = new URL(`/room/${roomId}`, this.#serverUrl);
-                            if (state != undefined) roomUrl.searchParams.set("state", state);
-                            location.href = roomUrl.href;
+                            roomUrl.searchParams.set("mode", "popup");
+                            const roomInfo = await this.#waitForPopupRoomInfo(popup, roomUrl.href, true);
+                            document.body.removeChild(iframe);
+                            // ignore local catch
+                            return resolve(this.joinRoom(roomInfo.roomId));
                         }
                         return reject(new Error(roomInfoOrMessage));
                     }
@@ -90,4 +102,46 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
             iframe.src = frameUrl.href;
         });
     }
+
+    #waitForPopupRoomInfo = async (popup: Window, href: string, closePopupOnSuccess = false): Promise<RoomInfo> => {
+        return await new Promise(async (resolve, reject) => {
+            const stablePopup = popup;
+            if (!stablePopup) return reject(new Error("failed to open popup"));
+            const onMessage = async (event: MessageEvent) => {
+                if (event.target !== stablePopup) return;
+                try {
+                    const [type, data] = event.data;
+                    if (type !== "roomInfo") return;
+                    stop(closePopupOnSuccess);
+                    return data as RoomInfo;
+                } catch (error) {
+                    stop(true);
+                    return reject(error);
+                }
+            }
+            const stop = (closePopup: boolean) => {
+                window.removeEventListener("message", onMessage);
+                if (!stablePopup.closed && closePopup) stablePopup.close();
+            }
+            window.addEventListener("message", onMessage)
+            stablePopup.location.replace(href);
+            await watchForCloseWindow(stablePopup);
+            stop(true);
+            return reject(new Error("popup closed with no data"));
+        })
+
+    }
+
+}
+
+function watchForCloseWindow(popup: Window): Promise<any> {
+    if (popup.closed) return Promise.resolve(true);
+    return new Promise(resolve => {
+        const interval = setInterval(() => {
+            if (popup.closed) {
+                clearInterval(interval);
+                resolve(true);
+            }
+        }, 200);
+    })
 }
