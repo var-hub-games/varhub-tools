@@ -7,6 +7,23 @@ type VarHubEvents = {
     "roomCreate": RoomCreateEvent
 }
 
+const getDefaultPopupFeatures = () => {
+    const height = 500;
+    const width = 500;
+    const left = window.screenX + window.outerWidth/2 - width/2;
+    const top = window.screenY + window.outerHeight/2 - height/2;
+    return [
+        `height=${height}`,
+        `width=${width}`,
+        "menubar=off",
+        "toolbar=off",
+        "location=off",
+        "status=off",
+        "resizable=off",
+        `left=${left}`,
+        `top=${top}`
+    ].join(",");
+}
 export class VarHub extends TypedEventTarget<VarHubEvents> {
     #serverUrl: URL;
 
@@ -34,7 +51,7 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
         const createRoomUrl = new URL("/room/create", this.#serverUrl);
         createRoomUrl.searchParams.set("mode", "popup");
         createRoomUrl.searchParams.set("url", handlerHref);
-        if (!popup) popup = window.open("about:blank", "new-room-popup", "width=500,height=500") ?? undefined;
+        if (!popup) popup = window.open("about:blank", "new-room-popup", getDefaultPopupFeatures()) ?? undefined;
         if (!popup) throw new Error("can not open popup");
         const roomData = await this.#waitForPopupRoomInfo(popup, createRoomUrl.href, false);
         return this.joinRoom(roomData.roomId, popup);
@@ -44,7 +61,7 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
         if (withPopup === window) throw new Error("can not open popup in current window");
         let popup: Window|undefined = undefined;
         if (withPopup && typeof withPopup !== "boolean") popup = withPopup;
-        if (withPopup === true) popup = window.open("about:blank", "new-room-popup", "width=500,height=500") ?? undefined;
+        if (withPopup === true) popup = window.open("about:blank", "new-room-popup", getDefaultPopupFeatures()) ?? undefined;
         if (popup && popup.closed) popup = undefined;
 
         return new Promise((resolve, reject) => {
@@ -71,7 +88,6 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
                             roomUrl.searchParams.set("mode", "popup");
                             const roomInfo = await this.#waitForPopupRoomInfo(popup, roomUrl.href, true);
                             document.body.removeChild(iframe);
-                            if (popup && !popup.closed) popup.close();
                             // ignore catch block
                             return resolve(this.joinRoom(roomInfo.roomId));
                         }
@@ -84,11 +100,12 @@ export class VarHub extends TypedEventTarget<VarHubEvents> {
                         if (popup && !popup.closed) popup.close();
                         reject(new Error("room cancelled"));
                     }
-                    if (popup && !popup.closed) popup.close();
                     resolve(room);
                 } catch (error) {
                     document.body.removeChild(iframe);
                     reject(error);
+                } finally {
+                    if (popup && !popup.closed) popup.close();
                 }
             }
             window.addEventListener("message", messageListener);
